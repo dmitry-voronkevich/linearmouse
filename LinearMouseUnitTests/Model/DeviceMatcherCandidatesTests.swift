@@ -71,6 +71,91 @@ final class DeviceMatcherCandidatesTests: XCTestCase {
         XCTAssertEqual(generic.condition, generic)
     }
 
+    func testConfigurationMatcherAddsLocationForOtherwiseIdenticalDevices() {
+        let generic = DeviceMatcher(
+            vendorID: 0x047D,
+            productID: 0x2048,
+            productName: "Kensington Eagle Trackball",
+            serialNumber: nil,
+            category: [.mouse]
+        )
+
+        let result = DeviceMatcher.disambiguatedForConfiguration(
+            generic,
+            locationID: 0x0211_0000,
+            among: [
+                (generic, 0x0211_0000),
+                (generic, 0x0212_0000)
+            ]
+        )
+
+        var other = generic
+        other.locationID = 0x0212_0000
+        XCTAssertEqual(result.locationID, 0x0211_0000)
+        XCTAssertTrue(result.isSatisfied(by: result))
+        XCTAssertFalse(result.isSatisfied(by: other))
+    }
+
+    func testConfigurationMatcherStaysPortableWithoutIdentityCollision() {
+        let generic = DeviceMatcher(
+            vendorID: 0x047D,
+            productID: 0x2048,
+            productName: "Kensington Eagle Trackball",
+            serialNumber: nil,
+            category: [.mouse]
+        )
+
+        XCTAssertEqual(
+            DeviceMatcher.disambiguatedForConfiguration(
+                generic,
+                locationID: 0x0211_0000,
+                among: [(generic, 0x0211_0000)]
+            ),
+            generic
+        )
+    }
+
+    func testConfigurationMatcherKeepsSavedLocationWhenTwinDisconnects() {
+        let generic = DeviceMatcher(
+            vendorID: 0x047D,
+            productID: 0x2048,
+            productName: "Kensington Eagle Trackball",
+            serialNumber: nil,
+            category: [.mouse]
+        )
+        var configured = generic
+        configured.locationID = 0x0211_0000
+
+        XCTAssertEqual(
+            DeviceMatcher.disambiguatedForConfiguration(
+                generic,
+                locationID: 0x0211_0000,
+                among: [(generic, 0x0211_0000)],
+                configuredMatchers: [configured]
+            ),
+            configured
+        )
+    }
+
+    func testLocationQualifiedSchemeDoesNotEditSharedScheme() {
+        var shared = mouse(productID: 0xB042, serialNumber: "fixed")
+        var located = shared
+        located.locationID = 0x0211_0000
+        shared.locationID = nil
+        let schemes = [Scheme(if: [.init(device: shared)])]
+
+        XCTAssertEqual(
+            schemes.schemeIndex(
+                ofDeviceMatcher: located,
+                ofApp: nil,
+                ofProcessPath: nil,
+                ofProcessName: nil,
+                ofDisplay: nil
+            ),
+            .insertAt(1)
+        )
+    }
+
     func testFirstMouseSchemeGoesBetweenReceiverAndReceiverAppSchemes() {
         let schemes = [
             Scheme(if: [.init(device: receiver)]),

@@ -6,6 +6,9 @@ import Defaults
 struct DeviceMatcher: Codable, Equatable, Hashable, Defaults.Serializable {
     @HexRepresentation var vendorID: Int?
     @HexRepresentation var productID: Int?
+    /// The USB topology location. Used only when otherwise identical connected
+    /// devices do not expose a unique serial number.
+    @HexRepresentation var locationID: Int?
     var productName: String?
     var serialNumber: String?
     @SingleValueOrArray var category: [Category]?
@@ -19,6 +22,7 @@ extension DeviceMatcher {
     init(category: Category) {
         vendorID = nil
         productID = nil
+        locationID = nil
         productName = nil
         serialNumber = nil
         self.category = [category]
@@ -29,6 +33,7 @@ extension DeviceMatcher {
         self.init(
             vendorID: device.vendorID,
             productID: device.productID,
+            locationID: nil,
             productName: device.productName,
             serialNumber: device.serialNumber,
             category: [Category(from: device.category)]
@@ -47,6 +52,7 @@ extension DeviceMatcher {
         self.init(
             vendorID: device.vendorID,
             productID: identity.productID,
+            locationID: nil,
             productName: identity.name,
             serialNumber: identity.serialNumber,
             category: [Category(from: device.category)]
@@ -56,18 +62,62 @@ extension DeviceMatcher {
     /// The device the user is actually using: the logical device the physical
     /// device currently routes to, or the physical device itself.
     init(activeOf device: Device) {
-        self = Self.candidates(of: device)[0]
+        if let identity = device.activeLogicalDeviceIdentity,
+           let logical = DeviceMatcher(of: device, logicalDevice: identity) {
+            self = logical
+        } else {
+            self.init(of: device)
+        }
+    }
+
+    /// Adds the physical connection location when another connected device
+    /// has the same reported identity at a different location, or when that
+    /// location already has a specific scheme. Most devices therefore keep
+    /// following their configuration between ports, while serial-less
+    /// identical units remain separately configurable even if one disconnects.
+    static func disambiguatedForConfiguration(
+        _ matcher: DeviceMatcher,
+        locationID: Int?,
+        among connectedDevices: [(matcher: DeviceMatcher, locationID: Int?)],
+        configuredMatchers: [DeviceMatcher] = []
+    ) -> DeviceMatcher {
+        guard matcher.locationID == nil, let locationID else {
+            return matcher
+        }
+
+        let hasConnectedTwin = connectedDevices.contains {
+            $0.matcher == matcher && $0.locationID != nil && $0.locationID != locationID
+        }
+        let hasLocationSpecificConfiguration = configuredMatchers.contains { configured in
+            guard configured.locationID == locationID else {
+                return false
+            }
+            var unlocated = configured
+            unlocated.locationID = nil
+            return unlocated.isSatisfied(by: matcher)
+        }
+        guard hasConnectedTwin || hasLocationSpecificConfiguration else {
+            return matcher
+        }
+
+        var result = matcher
+        result.locationID = locationID
+        return result
     }
 
     /// Every identity a scheme can match the device by, most specific first.
     /// Schemes written for a receiver keep applying to the devices behind it.
+    /// Matching candidates carry the physical connection location; conditions
+    /// without one continue to match across ports.
     static func candidates(of device: Device) -> [DeviceMatcher] {
-        let physical = DeviceMatcher(of: device)
+        var physical = DeviceMatcher(of: device)
+        physical.locationID = device.pointerDevice.locationID
         guard let identity = device.activeLogicalDeviceIdentity,
-              let logical = DeviceMatcher(of: device, logicalDevice: identity) else {
+              var logical = DeviceMatcher(of: device, logicalDevice: identity) else {
             return [physical]
         }
 
+        logical.locationID = device.pointerDevice.locationID
         return [logical, physical]
     }
 
@@ -88,12 +138,18 @@ extension DeviceMatcher {
 
     /// Matches the physical device or any logical device it currently routes to.
     func match(with device: Device) -> Bool {
-        if isSatisfied(by: DeviceMatcher(of: device)) {
+        var physical = DeviceMatcher(of: device)
+        physical.locationID = device.pointerDevice.locationID
+        if isSatisfied(by: physical) {
             return true
         }
 
         return DeviceManager.shared.pairedReceiverDevices(for: device).contains { identity in
-            DeviceMatcher(of: device, logicalDevice: identity).map(isSatisfied(by:)) ?? false
+            guard var logical = DeviceMatcher(of: device, logicalDevice: identity) else {
+                return false
+            }
+            logical.locationID = device.pointerDevice.locationID
+            return isSatisfied(by: logical)
         }
     }
 
@@ -108,6 +164,7 @@ extension DeviceMatcher {
 
         guard matchValue(vendorID, candidate.vendorID),
               matchValue(productID, candidate.productID),
+              matchValue(locationID, candidate.locationID),
               matchValue(productName, candidate.productName),
               matchValue(serialNumber, candidate.serialNumber)
         else {
@@ -128,6 +185,7 @@ extension DeviceMatcher {
     var categoryOnlyValue: Category? {
         guard vendorID == nil,
               productID == nil,
+              locationID == nil,
               productName == nil,
               serialNumber == nil,
               let category,

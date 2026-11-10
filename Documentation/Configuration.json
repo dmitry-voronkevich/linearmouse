@@ -1385,6 +1385,21 @@
           "description": "The category of the devices.",
           "title": "Category"
         },
+        "locationID": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/HexString"
+            },
+            {
+              "$ref": "#/definitions/Int"
+            }
+          ],
+          "description": "Match the USB topology location of a device. LinearMouse uses this only to distinguish simultaneously connected devices that otherwise report the same identity. Moving the device to another USB port may change this value.",
+          "examples": [
+            "0x02110000"
+          ],
+          "title": "Device location ID"
+        },
         "productID": {
           "anyOf": [
             {

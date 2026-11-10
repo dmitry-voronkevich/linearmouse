@@ -62,6 +62,13 @@ extension SchemeState {
             return false
         }
 
+        // A location-qualified selection inherits broader schemes at runtime,
+        // but its delete/edit operations own only schemes for that location.
+        if let targetLocationID = targetMatcher?.locationID,
+           conditionDeviceMatcher.locationID != targetLocationID {
+            return false
+        }
+
         if let targetDevice {
             return conditionDeviceMatcher.match(with: targetDevice)
         }
@@ -251,7 +258,7 @@ extension SchemeState {
             return deviceMatcher
         }
 
-        return DeviceMatcher(activeOf: device)
+        return DeviceManager.shared.configurationMatcher(for: device)
     }
 
     var deviceScheme: Scheme {

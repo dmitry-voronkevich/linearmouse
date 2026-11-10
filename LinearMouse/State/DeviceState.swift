@@ -25,7 +25,9 @@ class DeviceState: ObservableObject {
                 return
             }
 
-            let currentDeviceMatcher = currentDeviceRef?.value.map { DeviceMatcher(activeOf: $0) }
+            let currentDeviceMatcher = currentDeviceRef?.value.map {
+                DeviceManager.shared.configurationMatcher(for: $0)
+            }
             guard Defaults[.selectedDevice] != currentDeviceMatcher else {
                 return
             }
@@ -89,7 +91,7 @@ extension DeviceState {
 
     /// The device in use, which may be a device behind a receiver.
     private func exactMatcher(of deviceRef: WeakRef<Device>?) -> DeviceMatcher? {
-        deviceRef?.value.map { DeviceMatcher(activeOf: $0) }
+        deviceRef?.value.map { deviceManager.configurationMatcher(for: $0) }
     }
 
     private func updateCurrentDeviceRef(lastActiveDeviceRef: WeakRef<Device>?) {

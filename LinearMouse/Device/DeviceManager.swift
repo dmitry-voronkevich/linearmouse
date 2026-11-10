@@ -919,6 +919,36 @@ class DeviceManager: ObservableObject {
         markDeviceActive(physicalDevice, reason: "Received event from DeviceManager")
     }
 
+    /// The identity to persist when configuring `device`. A connection
+    /// location is added only when it is needed to distinguish otherwise
+    /// identical currently connected devices.
+    func configurationMatcher(for device: Device) -> DeviceMatcher {
+        configurationMatcher(DeviceMatcher(activeOf: device), for: device)
+    }
+
+    func configurationMatcher(_ matcher: DeviceMatcher, for device: Device) -> DeviceMatcher {
+        func configurableLocationID(of device: Device) -> Int? {
+            guard device.pointerDevice.transport == PointerDeviceTransportName.usb else {
+                return nil
+            }
+            return device.pointerDevice.locationID
+        }
+
+        return DeviceMatcher.disambiguatedForConfiguration(
+            matcher,
+            locationID: configurableLocationID(of: device),
+            among: devices.map {
+                (
+                    matcher: DeviceMatcher(activeOf: $0),
+                    locationID: configurableLocationID(of: $0)
+                )
+            },
+            configuredMatchers: ConfigurationState.shared.configuration.schemes
+                .flatMap { $0.if ?? [] }
+                .compactMap(\.device)
+        )
+    }
+
     func identifiedDevice(for senderID: UInt64) -> Device? {
         eventDeviceSnapshot.identifiedDevice(for: senderID)
     }

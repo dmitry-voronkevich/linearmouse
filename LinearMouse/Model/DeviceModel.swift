@@ -119,9 +119,10 @@ extension DeviceModel {
         }
 
         return pairedReceiverDevices.compactMap { identity in
-            guard let matcher = DeviceMatcher(of: device, logicalDevice: identity) else {
+            guard let baseMatcher = DeviceMatcher(of: device, logicalDevice: identity) else {
                 return nil
             }
+            let matcher = DeviceManager.shared.configurationMatcher(baseMatcher, for: device)
 
             return DevicePickerEntry(
                 id: "\(id)-\(identity.slot)",
@@ -158,7 +159,10 @@ extension DeviceModel {
         let physicalEntry = DevicePickerEntry(
             id: "\(id)",
             deviceRef: deviceRef,
-            matcher: DeviceMatcher(of: device),
+            matcher: DeviceManager.shared.configurationMatcher(
+                DeviceMatcher(of: device),
+                for: device
+            ),
             name: logicalEntries.isEmpty ? displayName : name,
             batteryLevel: pairedReceiverDevices.isEmpty ? batteryLevel : nil,
             isActive: isActive && !routesToListedDevice,

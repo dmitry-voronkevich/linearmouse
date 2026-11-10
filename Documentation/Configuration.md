@@ -197,6 +197,16 @@ I would create two schemes and specify the vendor ID and product ID:
 Then, the pointer speed of my Logitech mouse and Microsoft mouse will be set to 0.36 and 0.4
 respectively.
 
+### Identical devices without unique serial numbers
+
+Some devices report the same vendor ID, product ID, product name, and either no serial number or a
+fixed serial number shared by every unit. When otherwise identical devices are connected at
+different USB locations, LinearMouse adds `locationID` to the schemes created for them so they can
+have separate settings. Schemes without `locationID` continue to match the device at any port.
+
+A location identifies the USB topology rather than the physical unit. Moving two indistinguishable
+devices between ports can therefore move or swap their location-specific settings.
+
 ### Devices behind a receiver
 
 A Logitech Unifying or Bolt receiver passes on the events of the devices paired to it. When a

@@ -268,8 +268,18 @@ extension [Scheme] {
             )
         }
 
+        let matchingSchemes = allDeviceMatcherSpecificSchemes(of: matcher)
+        // A location-qualified selection may inherit broader schemes, but
+        // editing it must create or update its own override rather than mutate
+        // the scheme shared by every otherwise identical device.
+        let editableSchemes = if let locationID = matcher.locationID {
+            matchingSchemes.filter { $0.element.if?.first?.device?.locationID == locationID }
+        } else {
+            matchingSchemes
+        }
+
         return schemeIndex(
-            among: allDeviceMatcherSpecificSchemes(of: matcher),
+            among: editableSchemes,
             emptyInsertionIndex: endIndex,
             ofApp: app,
             ofProcessPath: processPath,
