@@ -341,6 +341,16 @@ final class ConfigurationTests: XCTestCase {
         XCTAssertEqual(device.productID, 0x00C5) // 197
     }
 
+    func testDeviceLocationIDUsesHexRepresentation() throws {
+        let source = #"{"schemes":[{"if":{"device":{"locationID":"0x02110000"}}}]}"#
+        let configuration = try Configuration.load(from: source)
+        let device = try XCTUnwrap(configuration.schemes[0].if?.first?.device)
+
+        XCTAssertEqual(device.locationID, 0x0211_0000)
+        let encoded = try XCTUnwrap(String(data: configuration.dump(), encoding: .utf8))
+        XCTAssertTrue(encoded.contains(#""locationID" : "0x2110000""#))
+    }
+
     func testDecodeAutoScrollSingleMode() throws {
         let autoScroll = try JSONDecoder().decode(
             Scheme.Buttons.AutoScroll.self,

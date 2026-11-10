@@ -27,7 +27,9 @@ enum DevicePickerSelection {
     }
 
     static func activeDevice(_ deviceRef: WeakRef<Device>) -> Self? {
-        deviceRef.value.map { .device(deviceRef, DeviceMatcher(activeOf: $0)) }
+        deviceRef.value.map {
+            .device(deviceRef, DeviceManager.shared.configurationMatcher(for: $0))
+        }
     }
 }
 

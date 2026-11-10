@@ -147,6 +147,13 @@ declare namespace Scheme {
       productID?: HexString | Int;
 
       /**
+       * @title Device location ID
+       * @description Match the USB topology location of a device. LinearMouse uses this only to distinguish simultaneously connected devices that otherwise report the same identity. Moving the device to another USB port may change this value.
+       * @examples ["0x02110000"]
+       */
+      locationID?: HexString | Int;
+
+      /**
        * @title Product name
        * @description The product name of the devices.
        */
